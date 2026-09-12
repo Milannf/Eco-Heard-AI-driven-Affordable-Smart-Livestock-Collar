@@ -1,11 +1,26 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ChevronRight, Plus, Search } from 'lucide-react-native';
+import { Beef, ChevronRight, Plus, Search } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS, RADIUS, SHADOWS, SIZES } from '../../constants/theme';
 import { MOCK_LIVESTOCK } from '../../data/livestock';
 
 const FILTERS = ['All', 'Healthy', 'Needs Attention', 'Critical'];
+
+function getStatusColors(status) {
+  if (status === 'Healthy') return { color: COLORS.success, bg: COLORS.successBg };
+  if (status === 'Needs Attention') return { color: COLORS.warning, bg: COLORS.warningBg };
+  return { color: COLORS.danger, bg: COLORS.dangerBg };
+}
 
 export default function LivestockScreen() {
   const router = useRouter();
@@ -13,7 +28,6 @@ export default function LivestockScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [livestockList, setLivestockList] = useState(MOCK_LIVESTOCK);
 
-  // Use focus effect to refresh data when returning from Add Livestock
   useFocusEffect(
     useCallback(() => {
       setLivestockList([...MOCK_LIVESTOCK]);
@@ -22,87 +36,99 @@ export default function LivestockScreen() {
 
   const filteredData = livestockList.filter(item => {
     if (activeFilter !== 'All' && item.healthStatus !== activeFilter) return false;
-    if (searchQuery && !item.displayId.toLowerCase().includes(searchQuery.toLowerCase()) && !item.breed.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (
+      searchQuery &&
+      !item.displayId.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      !item.breed.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+      return false;
     return true;
   });
 
   const renderItem = ({ item }) => {
-    let statusColor = COLORS.success;
-    let statusBg = COLORS.successBg;
-
-    if (item.healthStatus === 'Needs Attention') {
-      statusColor = COLORS.warning;
-      statusBg = COLORS.warningBg;
-    } else if (item.healthStatus === 'Critical') {
-      statusColor = COLORS.danger;
-      statusBg = COLORS.dangerBg;
-    }
+    const { color, bg } = getStatusColors(item.healthStatus);
+    const initials = item.displayId.replace('Cow #', '#');
 
     return (
       <Pressable
-        style={styles.card}
+        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
         onPress={() => router.push(`/livestock/${item.id}`)}
       >
         <View style={styles.cardLayout}>
-          <View style={styles.imagePlaceholder} />
+          {/* Colored initial box */}
+          <View style={[styles.initBox, { backgroundColor: COLORS.softGreen }]}>
+            <Beef size={20} color={COLORS.primary} />
+          </View>
 
           <View style={styles.cardContent}>
             <View style={styles.cardHeader}>
               <Text style={styles.tagId}>{item.displayId}</Text>
-              <View style={[styles.badge, { backgroundColor: statusBg }]}>
-                <Text style={[styles.badgeText, { color: statusColor }]}>{item.healthStatus}</Text>
+              <View style={[styles.badge, { backgroundColor: bg }]}>
+                <Text style={[styles.badgeText, { color }]}>
+                  {item.healthStatus === 'Needs Attention' ? 'Attention' : item.healthStatus}
+                </Text>
               </View>
             </View>
             <Text style={styles.breed}>{item.breed} • {item.barn}</Text>
-
             <Text style={styles.details}>
-              Temp {item.temperature}°C • Activity {item.activity}
+              {item.temperature}°C • {item.activity} Activity
             </Text>
           </View>
 
-          <ChevronRight size={20} color={COLORS.border} />
+          <ChevronRight size={18} color={COLORS.textMuted} />
         </View>
       </Pressable>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* ── Header ── */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View>
             <Text style={styles.title}>Livestock</Text>
-            <Text style={styles.subtitle}>{livestockList.length} livestock • Barn B</Text>
+            <Text style={styles.subtitle}>Manage and monitor your livestock.</Text>
           </View>
           <Pressable
             style={styles.addButton}
             onPress={() => router.push('/add-livestock')}
           >
-            <Plus size={20} color={COLORS.surface} style={{ marginRight: 4 }} />
-            <Text style={styles.addButtonText}>Add</Text>
+            <Plus size={18} color={COLORS.surface} style={{ marginRight: 5 }} />
+            <Text style={styles.addButtonText}>Add Livestock</Text>
           </Pressable>
         </View>
 
+        {/* Search */}
         <View style={styles.searchContainer}>
-          <Search size={20} color={COLORS.textLight} style={styles.searchIcon} />
+          <Search size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search livestock..."
-            placeholderTextColor={COLORS.textLight}
+            placeholder="Search by ID or breed…"
+            placeholderTextColor={COLORS.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
 
-        <View style={styles.filterContainer}>
+        {/* Filters */}
+        <View style={styles.filterRow}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {FILTERS.map(filter => (
               <Pressable
                 key={filter}
-                style={[styles.filterChip, activeFilter === filter && styles.filterChipActive]}
+                style={[
+                  styles.filterChip,
+                  activeFilter === filter && styles.filterChipActive,
+                ]}
                 onPress={() => setActiveFilter(filter)}
               >
-                <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
+                <Text
+                  style={[
+                    styles.filterText,
+                    activeFilter === filter && styles.filterTextActive,
+                  ]}
+                >
                   {filter}
                 </Text>
               </Pressable>
@@ -111,12 +137,20 @@ export default function LivestockScreen() {
         </View>
       </View>
 
+      {/* ── List ── */}
       <FlatList
         data={filteredData}
         keyExtractor={item => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Beef size={40} color={COLORS.border} />
+            <Text style={styles.emptyText}>No livestock found</Text>
+            <Text style={styles.emptySubtext}>Try adjusting your search or filter.</Text>
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -128,96 +162,106 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    padding: SIZES.pagePadding,
-    paddingBottom: 8,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: SIZES.pagePadding,
+    paddingTop: SIZES.sm,
+    paddingBottom: 4,
   },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: SIZES.md,
   },
   title: {
     ...FONTS.screenTitle,
   },
   subtitle: {
-    ...FONTS.body,
+    fontSize: 13,
     color: COLORS.textLight,
-    marginTop: 2,
+    marginTop: 3,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.primaryDark,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: RADIUS.lg,
+    ...SHADOWS.button,
+    marginTop: 4,
   },
   addButtonText: {
     color: COLORS.surface,
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.md,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     height: 48,
     marginBottom: SIZES.md,
-    ...SHADOWS.card,
-  },
-  searchIcon: {
-    marginRight: 8,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
   },
   searchInput: {
     flex: 1,
     height: '100%',
-    ...FONTS.body,
+    fontSize: 14,
+    color: COLORS.text,
   },
-  filterContainer: {
-    flexDirection: 'row',
-    marginBottom: SIZES.sm,
+  filterRow: {
+    marginBottom: 8,
   },
   filterChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.border,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.surface,
     marginRight: 8,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
   },
   filterChipActive: {
     backgroundColor: COLORS.primaryDark,
+    borderColor: COLORS.primaryDark,
   },
   filterText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.text,
+    color: COLORS.textLight,
   },
   filterTextActive: {
     color: COLORS.surface,
   },
   listContent: {
-    padding: SIZES.pagePadding,
-    paddingTop: 8,
+    paddingHorizontal: SIZES.pagePadding,
+    paddingTop: 10,
+    paddingBottom: 24,
   },
   card: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
-    padding: 12,
-    marginBottom: 12,
+    padding: 14,
+    marginBottom: 10,
     ...SHADOWS.card,
+  },
+  cardPressed: {
+    opacity: 0.85,
   },
   cardLayout: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  imagePlaceholder: {
-    width: 48,
-    height: 48,
+  initBox: {
+    width: 46,
+    height: 46,
     borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
   },
   cardContent: {
@@ -227,7 +271,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 2,
+    marginBottom: 3,
   },
   tagId: {
     fontSize: 15,
@@ -235,22 +279,36 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: RADIUS.xs,
   },
   badgeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
   },
   breed: {
     fontSize: 12,
     color: COLORS.textLight,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   details: {
     fontSize: 12,
     fontWeight: '500',
     color: COLORS.text,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingTop: 60,
+    gap: 8,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textLight,
+  },
+  emptySubtext: {
+    fontSize: 13,
+    color: COLORS.textMuted,
   },
 });

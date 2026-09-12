@@ -1,57 +1,63 @@
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, FONTS } from '../../constants/theme';
-import { Home, List, FileText, Bell } from 'lucide-react-native';
+import { COLORS } from '../../constants/theme';
+import { Home, Beef, FileText, Bell } from 'lucide-react-native';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textLight,
+        tabBarActiveTintColor: COLORS.tabActive,
+        tabBarInactiveTintColor: COLORS.tabInactive,
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: -2,
         },
         tabBarStyle: {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border,
-          height: 60 + insets.bottom,
-          paddingBottom: insets.bottom + 8,
-          paddingTop: 8,
-          elevation: 0,
-          shadowOpacity: 0,
+          borderTopWidth: 1,
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom + 10,
+          paddingTop: 10,
+          shadowColor: '#183D2B',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 12,
+          elevation: 8,
         },
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => <Home size={22} color={color} />,
+          title: 'Beranda',
+          tabBarIcon: ({ color }) => <Home size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="livestock"
         options={{
-          title: 'Livestock',
-          tabBarIcon: ({ color, size }) => <List size={22} color={color} />,
+          title: 'Ternak',
+          tabBarIcon: ({ color }) => <Beef size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="reports"
         options={{
-          title: 'Reports',
-          tabBarIcon: ({ color, size }) => <FileText size={22} color={color} />,
+          title: 'Laporan',
+          tabBarIcon: ({ color }) => <FileText size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Notifications',
-          tabBarIcon: ({ color, size }) => <Bell size={22} color={color} />,
+          title: 'Notifikasi',
+          tabBarIcon: ({ color }) => <Bell size={22} color={color} />,
         }}
       />
     </Tabs>

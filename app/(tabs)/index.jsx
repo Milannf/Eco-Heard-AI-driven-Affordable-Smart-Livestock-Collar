@@ -1,163 +1,280 @@
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { COLORS, FONTS, SIZES, RADIUS, SHADOWS } from '../../constants/theme';
-import { Bell, User, TriangleAlert, PawPrint, HeartPulse, ChevronRight, Leaf } from 'lucide-react-native';
+import { Bell, User, TriangleAlert, HeartPulse, ChevronRight, Leaf, Activity, CloudFog } from 'lucide-react-native';
 import { MOCK_LIVESTOCK } from '../../data/livestock';
+import { useAuth } from '../../context/AuthContext';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { user } = useAuth();
 
-  // Dynamic KPIs from centralized mock data
+  // Dynamic counts based on actual mock data
   const totalLivestock = MOCK_LIVESTOCK.length;
-  const healthyCount = MOCK_LIVESTOCK.filter(c => c.healthStatus === 'Healthy').length;
-  const attentionCount = MOCK_LIVESTOCK.filter(c => c.healthStatus === 'Needs Attention').length;
-  const criticalCount = MOCK_LIVESTOCK.filter(c => c.healthStatus === 'Critical').length;
-  const healthPercentage = totalLivestock > 0 ? Math.round((healthyCount / totalLivestock) * 100) : 0;
+  const healthyCount = MOCK_LIVESTOCK.filter(c => c.healthStatus === 'Sehat').length;
+  const attentionCount = MOCK_LIVESTOCK.filter(c => c.healthStatus === 'Perlu Perhatian').length;
+  const criticalCount = MOCK_LIVESTOCK.filter(c => c.healthStatus === 'Kritis').length;
+
+  const healthPercent = totalLivestock > 0 ? Math.round((healthyCount / totalLivestock) * 100) : 0;
+
+  const needsAttentionCattle = MOCK_LIVESTOCK.filter(
+    c => c.healthStatus === 'Perlu Perhatian' || c.healthStatus === 'Kritis'
+  ).slice(0, 3);
+
+  const criticalCattle = MOCK_LIVESTOCK.find(c => c.healthStatus === 'Kritis');
+
+  const getHour = () => new Date().getHours();
+  const getGreeting = () => {
+    const h = getHour();
+    if (h < 12) return 'Selamat pagi';
+    if (h < 15) return 'Selamat siang';
+    if (h < 18) return 'Selamat sore';
+    return 'Selamat malam';
+  };
+
+  const firstName = user?.name?.split(' ')[0] || 'Peternak';
+
+  // Methane summary (simulated based on mock data)
+  const totalMethaneToday = MOCK_LIVESTOCK.reduce((acc, c) => acc + (c.methaneEmissionToday || 0), 0);
+  const totalMethaneYesterday = MOCK_LIVESTOCK.reduce((acc, c) => acc + (c.methaneEmissionYesterday || 0), 0);
+  const avgMethane = totalLivestock > 0 ? Math.round(totalMethaneToday / totalLivestock) : 0;
+  const methaneChange = totalMethaneYesterday > 0 ? Math.round(((totalMethaneToday - totalMethaneYesterday) / totalMethaneYesterday) * 100) : 0;
   
-  const needsAttentionCattle = MOCK_LIVESTOCK.filter(c => c.healthStatus === 'Needs Attention' || c.healthStatus === 'Critical').slice(0, 2);
-  const criticalCattle = MOCK_LIVESTOCK.find(c => c.healthStatus === 'Critical') || needsAttentionCattle[0];
-
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* Header Section */}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Header ── */}
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Pressable onPress={() => router.push('/profile')} style={styles.avatar}>
-              <User size={20} color={COLORS.surface} />
-            </Pressable>
-            <View>
-              <Text style={styles.greeting}>Good evening, Pak Tani</Text>
-              <Text style={styles.location}>Barn B • Bogor</Text>
+          <Pressable style={styles.headerLeft} onPress={() => router.push('/profile')}>
+            <View style={styles.avatar}>
+              <User size={18} color={COLORS.surface} />
             </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Pressable onPress={() => router.push('/notifications')} style={styles.iconButton}>
-              <Bell size={22} color={COLORS.primaryDark} />
-              <View style={styles.badgeIndicator} />
-            </Pressable>
-          </View>
+            <View>
+              <Text style={styles.greeting}>{getGreeting()}, {firstName}</Text>
+              <Text style={styles.location}>
+                {user?.farmName || 'Peternakan Saya'} • {user?.location || 'Indonesia'}
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push('/(tabs)/notifications')}
+            style={styles.bellBtn}
+          >
+            <Bell size={22} color={COLORS.primaryDark} />
+            <View style={styles.badgeDot} />
+          </Pressable>
         </View>
 
+        {/* ── Intro ── */}
         <View style={styles.introSection}>
-          <Text style={styles.introTitle}>Livestock Overview</Text>
-          <Text style={styles.introSubtitle}>Here's how your livestock is doing today.</Text>
+          <Text style={styles.introTitle}>Ringkasan Ternak</Text>
+          <Text style={styles.introSubtitle}>Kondisi ternak Anda hari ini.</Text>
         </View>
 
-        {/* Critical Alert Banner */}
+        {/* ── Critical Alert ── */}
         {criticalCattle && (
-          <Pressable 
-            style={styles.alertBanner} 
+          <Pressable
+            style={styles.alertBanner}
             onPress={() => router.push(`/livestock/${criticalCattle.id}`)}
           >
-            <View style={styles.alertIcon}>
-              <TriangleAlert size={20} color={COLORS.warning} />
+            <View style={styles.alertIconBox}>
+              <TriangleAlert size={18} color={COLORS.warning} />
             </View>
             <View style={styles.alertContent}>
-              <Text style={styles.alertTitle}>NEEDS ATTENTION</Text>
-              <Text style={styles.alertDesc}>{criticalCattle.displayId} has shown {criticalCattle.activity.toLowerCase()} activity.</Text>
+              <Text style={styles.alertLabel}>PERLU PERHATIAN</Text>
+              <Text style={styles.alertDesc}>
+                {criticalCattle.displayId} — aktivitas {criticalCattle.activity.toLowerCase()} terdeteksi.
+              </Text>
             </View>
-            <ChevronRight size={20} color={COLORS.warning} />
+            <ChevronRight size={18} color={COLORS.warning} />
           </Pressable>
         )}
 
-        {/* KPIs */}
+        {/* ── KPI Row ── */}
         <View style={styles.kpiRow}>
-          <View style={styles.kpiCardMain}>
-            <View style={styles.kpiHeader}>
-              <View style={[styles.kpiIconBox, { backgroundColor: COLORS.successBg }]}>
-                <PawPrint size={18} color={COLORS.success} />
+          {/* Total Livestock */}
+          <View style={[styles.kpiCardLarge, styles.kpiCardGreen]}>
+            <View style={styles.kpiIconRow}>
+              <View style={styles.kpiIconBox}>
+                <Activity size={16} color={COLORS.surface} />
               </View>
-              <Text style={styles.kpiLabel}>TOTAL LIVESTOCK</Text>
+              <Text style={styles.kpiLabelWhite}>TOTAL</Text>
             </View>
-            <Text style={styles.kpiValueMain}>{totalLivestock}</Text>
+            <Text style={styles.kpiValueLarge}>{totalLivestock}</Text>
+            <Text style={styles.kpiSubWhite}>Ternak</Text>
           </View>
+
           <View style={styles.kpiCol}>
+            {/* Herd Health */}
             <View style={styles.kpiCardSmall}>
-              <View style={styles.kpiHeader}>
-                <HeartPulse size={14} color={COLORS.success} style={{marginRight: 6}}/>
-                <Text style={styles.kpiLabelSmall}>HERD HEALTH</Text>
+              <View style={styles.kpiSmallHeader}>
+                <HeartPulse size={13} color={COLORS.success} />
+                <Text style={styles.kpiLabelGreen}>KESEHATAN</Text>
               </View>
-              <Text style={styles.kpiValueSmall}>{healthPercentage}%</Text>
+              <Text style={styles.kpiValueSmall}>{healthPercent}%</Text>
             </View>
+
+            {/* Needs Attention */}
             <View style={styles.kpiCardSmall}>
-              <View style={styles.kpiHeader}>
-                <TriangleAlert size={14} color={COLORS.warning} style={{marginRight: 6}}/>
-                <Text style={styles.kpiLabelSmall}>ATTENTION</Text>
+              <View style={styles.kpiSmallHeader}>
+                <TriangleAlert size={13} color={COLORS.warning} />
+                <Text style={styles.kpiLabelWarning}>PERHATIAN</Text>
               </View>
-              <Text style={[styles.kpiValueSmall, { color: COLORS.warning }]}>{attentionCount + criticalCount}</Text>
+              <Text style={[styles.kpiValueSmall, { color: COLORS.warning }]}>
+                {attentionCount + criticalCount}
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* Health Status Summary */}
+        {/* ── Health Summary Card ── */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Herd Health Summary</Text>
-          <View style={styles.healthStatsRow}>
+          <Text style={styles.cardTitle}>Ringkasan Kesehatan</Text>
+
+          <View style={styles.healthStats}>
             <View style={styles.healthStatItem}>
-              <Text style={[styles.healthStatLabel, { color: COLORS.success }]}>Healthy</Text>
-              <Text style={styles.healthStatValue}>{healthyCount}</Text>
+              <View style={[styles.statusDot, { backgroundColor: COLORS.success }]} />
+              <Text style={styles.healthLabel}>Sehat</Text>
+              <Text style={[styles.healthValue, { color: COLORS.success }]}>{healthyCount}</Text>
             </View>
             <View style={styles.healthStatItem}>
-              <Text style={[styles.healthStatLabel, { color: COLORS.warning }]}>Needs Attention</Text>
-              <Text style={styles.healthStatValue}>{attentionCount}</Text>
+              <View style={[styles.statusDot, { backgroundColor: COLORS.warning }]} />
+              <Text style={styles.healthLabel}>Perhatian</Text>
+              <Text style={[styles.healthValue, { color: COLORS.warning }]}>{attentionCount}</Text>
             </View>
             <View style={styles.healthStatItem}>
-              <Text style={[styles.healthStatLabel, { color: COLORS.danger }]}>Critical</Text>
-              <Text style={styles.healthStatValue}>{criticalCount}</Text>
+              <View style={[styles.statusDot, { backgroundColor: COLORS.danger }]} />
+              <Text style={styles.healthLabel}>Kritis</Text>
+              <Text style={[styles.healthValue, { color: COLORS.danger }]}>{criticalCount}</Text>
             </View>
           </View>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressSegment, { flex: healthyCount || 1, backgroundColor: COLORS.success }]} />
-            <View style={[styles.progressSegment, { flex: attentionCount || 0.1, backgroundColor: COLORS.warning }]} />
-            <View style={[styles.progressSegment, { flex: criticalCount || 0.1, backgroundColor: COLORS.danger }]} />
+
+          {/* Segmented progress bar */}
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressSeg, {
+              flex: healthyCount || 1,
+              backgroundColor: COLORS.success,
+              borderTopLeftRadius: 6,
+              borderBottomLeftRadius: 6,
+            }]} />
+            {attentionCount > 0 && (
+              <View style={[styles.progressSeg, {
+                flex: attentionCount,
+                backgroundColor: COLORS.warning,
+              }]} />
+            )}
+            {criticalCount > 0 && (
+              <View style={[styles.progressSeg, {
+                flex: criticalCount,
+                backgroundColor: COLORS.danger,
+                borderTopRightRadius: 6,
+                borderBottomRightRadius: 6,
+              }]} />
+            )}
+          </View>
+
+          <View style={styles.progressLegend}>
+            <Text style={styles.legendText}>0</Text>
+            <Text style={styles.legendText}>Total {totalLivestock} ternak</Text>
           </View>
         </View>
 
-        {/* Needs Attention List */}
+        {/* ── Methane Dashboard ── */}
+        <View style={styles.card}>
+          <View style={styles.sectionHeaderNoMargin}>
+            <View style={styles.iconTitleRow}>
+              <CloudFog size={20} color={COLORS.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.cardTitle}>Emisi Metana</Text>
+            </View>
+            <Pressable onPress={() => router.push('/methane')}>
+              <Text style={styles.viewAll}>Lihat Detail</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.methaneSummary}>
+            <View style={styles.methaneBox}>
+              <Text style={styles.methaneLabel}>Estimasi Hari Ini</Text>
+              <Text style={styles.methaneValue}>{totalMethaneToday} <Text style={styles.methaneUnit}>L</Text></Text>
+            </View>
+            <View style={styles.methaneBox}>
+              <Text style={styles.methaneLabel}>Rata-rata/Ternak</Text>
+              <Text style={styles.methaneValue}>{avgMethane} <Text style={styles.methaneUnit}>L</Text></Text>
+            </View>
+            <View style={styles.methaneBox}>
+              <Text style={styles.methaneLabel}>Perubahan</Text>
+              <Text style={[styles.methaneValue, { color: methaneChange > 0 ? COLORS.danger : COLORS.success }]}>
+                {methaneChange > 0 ? '+' : ''}{methaneChange}%
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Needs Attention ── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Needs Attention</Text>
-          <Pressable onPress={() => router.push('/livestock')}>
-            <Text style={styles.linkText}>View All</Text>
+          <Text style={styles.sectionTitle}>Perlu Perhatian</Text>
+          <Pressable onPress={() => router.push('/(tabs)/livestock')}>
+            <Text style={styles.viewAll}>Lihat Semua</Text>
           </Pressable>
         </View>
 
-        {needsAttentionCattle.map(cattle => (
-          <Pressable 
-            key={cattle.id}
-            style={styles.compactCard}
-            onPress={() => router.push(`/livestock/${cattle.id}`)}
-          >
-            <View style={styles.compactCardContent}>
-              <View>
-                <Text style={styles.cattleTag}>{cattle.displayId}</Text>
-                <Text style={styles.cattleBreed}>{cattle.breed}</Text>
-                <Text style={styles.cattleDetails}>{cattle.temperature}°C • {cattle.activity} Activity</Text>
-              </View>
-              <View style={[styles.statusBadge, { backgroundColor: cattle.healthStatus === 'Needs Attention' ? COLORS.warningBg : COLORS.dangerBg }]}>
-                <Text style={[styles.statusText, { color: cattle.healthStatus === 'Needs Attention' ? COLORS.warning : COLORS.danger }]}>
-                  {cattle.healthStatus}
-                </Text>
-              </View>
-            </View>
-            <ChevronRight size={18} color={COLORS.border} />
-          </Pressable>
-        ))}
+        {needsAttentionCattle.length > 0 ? (
+          needsAttentionCattle.map(cattle => {
+            const isWarning = cattle.healthStatus === 'Perlu Perhatian';
+            const statusColor = isWarning ? COLORS.warning : COLORS.danger;
+            const statusBg = isWarning ? COLORS.warningBg : COLORS.dangerBg;
+            return (
+              <Pressable
+                key={cattle.id}
+                style={styles.livestockCard}
+                onPress={() => router.push(`/livestock/${cattle.id}`)}
+              >
+                <View style={[styles.livestockInitial, { backgroundColor: COLORS.softGreen }]}>
+                  <Text style={styles.initialText}>
+                    {cattle.displayId.replace('Sapi #', '#')}
+                  </Text>
+                </View>
+                <View style={styles.livestockInfo}>
+                  <Text style={styles.cattleId}>{cattle.displayId}</Text>
+                  <Text style={styles.cattleBreed}>{cattle.breed} • {cattle.barn}</Text>
+                  <Text style={styles.cattleVitals}>
+                    {cattle.temperature}°C • {cattle.activity}
+                  </Text>
+                </View>
+                <View style={styles.livestockRight}>
+                  <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+                    <Text style={[styles.statusText, { color: statusColor }]}>
+                      {cattle.healthStatus}
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color={COLORS.border} style={{ marginTop: 6 }} />
+                </View>
+              </Pressable>
+            );
+          })
+        ) : (
+           <Text style={styles.emptyStateText}>Tidak ada ternak yang perlu perhatian khusus.</Text>
+        )}
 
-        {/* Feed Recommendation */}
-        <View style={[styles.card, styles.recommendationCard]}>
-          <View style={styles.recommendationHeader}>
-            <View style={styles.leafIconBox}>
-              <Leaf size={18} color={COLORS.earth} />
+        {/* ── Feed Recommendation ── */}
+        <View style={[styles.card, styles.feedCard]}>
+          <View style={styles.feedHeader}>
+            <View style={styles.feedIconBox}>
+              <Leaf size={16} color={COLORS.primary} />
             </View>
-            <Text style={styles.cardTitle}>Feed Recommendation</Text>
+            <Text style={styles.feedTitle}>Rekomendasi Pakan</Text>
           </View>
-          <Text style={styles.recommendationTitle}>Fresh Forage + Concentrate</Text>
-          <Text style={styles.recommendationDesc}>Recommended for today's herd condition to maintain optimal health and milk yield.</Text>
+          <Text style={styles.feedName}>Hijauan Segar + Konsentrat</Text>
+          <Text style={styles.feedDesc}>
+            Direkomendasikan untuk kondisi ternak hari ini guna menjaga kesehatan dan produksi susu yang optimal.
+          </Text>
         </View>
-        
-        <View style={{height: 20}} />
+
+        <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -169,8 +286,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   scrollContent: {
-    padding: SIZES.pagePadding,
+    paddingHorizontal: SIZES.pagePadding,
+    paddingTop: SIZES.sm,
+    paddingBottom: 16,
   },
+
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -181,43 +302,50 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: COLORS.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    ...SHADOWS.card,
   },
   greeting: {
-    ...FONTS.body,
+    fontSize: 15,
     fontWeight: '600',
     color: COLORS.text,
   },
   location: {
-    ...FONTS.caption,
+    fontSize: 12,
+    color: COLORS.textLight,
     marginTop: 2,
   },
-  headerRight: {
-    flexDirection: 'row',
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.card,
   },
-  iconButton: {
-    padding: 8,
-    position: 'relative',
-  },
-  badgeIndicator: {
+  badgeDot: {
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
     backgroundColor: COLORS.danger,
-    borderWidth: 1,
-    borderColor: COLORS.background,
+    borderWidth: 1.5,
+    borderColor: COLORS.surface,
   },
+
+  // Intro
   introSection: {
     marginBottom: SIZES.md,
   },
@@ -225,92 +353,133 @@ const styles = StyleSheet.create({
     ...FONTS.screenTitle,
   },
   introSubtitle: {
-    ...FONTS.body,
+    fontSize: 14,
     color: COLORS.textLight,
     marginTop: 4,
   },
+
+  // Alert banner
   alertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.warningBg,
     borderRadius: RADIUS.lg,
-    padding: 16,
+    padding: 14,
     marginBottom: SIZES.lg,
     borderWidth: 1,
-    borderColor: 'rgba(200, 134, 24, 0.2)',
+    borderColor: COLORS.warningBorder,
   },
-  alertIcon: {
+  alertIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(138,106,26,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
   },
-  alertContent: {
-    flex: 1,
-  },
-  alertTitle: {
-    fontSize: 12,
+  alertContent: { flex: 1 },
+  alertLabel: {
+    fontSize: 11,
     fontWeight: '700',
     color: COLORS.warning,
-    marginBottom: 4,
     letterSpacing: 0.5,
+    marginBottom: 3,
   },
   alertDesc: {
-    ...FONTS.body,
+    fontSize: 13,
     color: COLORS.text,
-    lineHeight: 20,
+    lineHeight: 18,
   },
+
+  // KPIs
   kpiRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
     marginBottom: SIZES.lg,
   },
-  kpiCardMain: {
-    width: '48%',
-    backgroundColor: COLORS.surface,
+  kpiCardLarge: {
+    flex: 1,
     borderRadius: RADIUS.lg,
-    padding: 16,
-    ...SHADOWS.card,
-  },
-  kpiCol: {
-    width: '48%',
+    padding: 18,
     justifyContent: 'space-between',
-  },
-  kpiCardSmall: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    padding: 12,
-    marginBottom: 8,
+    minHeight: 130,
     ...SHADOWS.card,
   },
-  kpiHeader: {
+  kpiCardGreen: {
+    backgroundColor: COLORS.primaryDark,
+  },
+  kpiIconRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   kpiIconBox: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
   },
-  kpiLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textLight,
-  },
-  kpiLabelSmall: {
+  kpiLabelWhite: {
     fontSize: 10,
     fontWeight: '700',
-    color: COLORS.textLight,
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 0.5,
   },
-  kpiValueMain: {
-    ...FONTS.kpi,
+  kpiValueLarge: {
+    fontSize: 44,
+    fontWeight: '800',
+    color: COLORS.surface,
+    letterSpacing: -1,
+    lineHeight: 50,
+  },
+  kpiSubWhite: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.65)',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  kpiCol: {
+    flex: 1,
+    gap: 10,
+  },
+  kpiCardSmall: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: 14,
+    justifyContent: 'center',
+    ...SHADOWS.card,
+  },
+  kpiSmallHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 8,
+  },
+  kpiLabelGreen: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.success,
+    letterSpacing: 0.3,
+  },
+  kpiLabelWarning: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.warning,
+    letterSpacing: 0.3,
   },
   kpiValueSmall: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: COLORS.primaryDark,
+    letterSpacing: -0.5,
   },
+
+  // Card
   card: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
@@ -320,35 +489,95 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     ...FONTS.cardTitle,
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  healthStatsRow: {
+  iconTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  sectionHeaderNoMargin: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  // Health summary
+  healthStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     marginBottom: 16,
   },
   healthStatItem: {
     alignItems: 'center',
+    gap: 4,
   },
-  healthStatLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  healthLabel: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    fontWeight: '500',
+  },
+  healthValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  progressTrack: {
+    height: 10,
+    flexDirection: 'row',
+    borderRadius: 6,
+    overflow: 'hidden',
+    backgroundColor: COLORS.border,
+    gap: 1,
+  },
+  progressSeg: {
+    height: '100%',
+  },
+  progressLegend: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  legendText: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+  },
+
+  // Methane Summary
+  methaneSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.veryLight,
+    padding: 14,
+    borderRadius: RADIUS.md,
+  },
+  methaneBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  methaneLabel: {
+    fontSize: 11,
+    color: COLORS.textLight,
     marginBottom: 4,
   },
-  healthStatValue: {
-    fontSize: 20,
+  methaneValue: {
+    fontSize: 18,
     fontWeight: '700',
     color: COLORS.text,
   },
-  progressBar: {
-    height: 8,
-    flexDirection: 'row',
-    borderRadius: 4,
-    overflow: 'hidden',
+  methaneUnit: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '500',
   },
-  progressSegment: {
-    height: '100%',
-  },
+
+  // Section header
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -358,75 +587,106 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...FONTS.sectionTitle,
   },
-  linkText: {
-    ...FONTS.body,
+  viewAll: {
+    fontSize: 14,
     fontWeight: '600',
     color: COLORS.primary,
   },
-  compactCard: {
+
+  // Livestock card
+  livestockCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
-    padding: 16,
-    marginBottom: 12,
+    padding: 14,
+    marginBottom: 10,
     ...SHADOWS.card,
   },
-  compactCardContent: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  livestockInitial: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.sm,
     alignItems: 'center',
-    paddingRight: 16,
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  cattleTag: {
-    fontSize: 16,
+  initialText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  livestockInfo: { flex: 1 },
+  cattleId: {
+    fontSize: 15,
     fontWeight: '700',
     color: COLORS.text,
   },
   cattleBreed: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textLight,
     marginTop: 2,
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  cattleDetails: {
+  cattleVitals: {
     fontSize: 12,
     color: COLORS.text,
     fontWeight: '500',
   },
+  livestockRight: {
+    alignItems: 'flex-end',
+    marginLeft: 8,
+  },
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: RADIUS.xs,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
-  recommendationCard: {
-    backgroundColor: COLORS.earthBg,
-    borderColor: 'rgba(155, 93, 54, 0.15)',
+  emptyStateText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+    marginBottom: 16,
+  },
+
+  // Feed recommendation
+  feedCard: {
     borderWidth: 1,
+    borderColor: COLORS.softGreen,
+    backgroundColor: COLORS.veryLight,
   },
-  recommendationHeader: {
+  feedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  leafIconBox: {
-    marginRight: 8,
+  feedIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: COLORS.softGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
-  recommendationTitle: {
+  feedTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.primaryDark,
+  },
+  feedName: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.earth,
+    color: COLORS.primaryDark,
     marginBottom: 6,
   },
-  recommendationDesc: {
-    fontSize: 14,
-    color: COLORS.text,
-    lineHeight: 20,
-  }
+  feedDesc: {
+    fontSize: 13,
+    color: COLORS.textLight,
+    lineHeight: 19,
+  },
 });

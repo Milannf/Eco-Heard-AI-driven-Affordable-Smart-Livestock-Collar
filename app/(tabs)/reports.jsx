@@ -1,122 +1,225 @@
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Alert } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS, SIZES, RADIUS, SHADOWS } from '../../constants/theme';
-import { Calendar, TrendingUp, AlertCircle, Download, Users } from 'lucide-react-native';
+import {
+  Calendar,
+  CircleAlert,
+  Download,
+  Users,
+  ChartBar,
+  HeartPulse,
+  Activity,
+} from 'lucide-react-native';
 import { MOCK_LIVESTOCK } from '../../data/livestock';
+import { useAuth } from '../../context/AuthContext';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
-const MOCK_METHANE = [
-  { name: 'Sutrisno', value: 42 },
-  { name: 'Budi A.', value: 38 },
-  { name: 'Ani S.', value: 35 },
-  { name: 'Dono', value: 32 },
-  { name: 'Haryanto', value: 29 },
+const MOCK_FARMERS = [
+  { id: '1', name: 'Budi Santoso', cattle: 24, status: 'Sehat' },
+  { id: '2', name: 'Asep Supriatna', cattle: 20, status: 'Perlu Cek' },
+  { id: '3', name: 'Siti Aminah', cattle: 18, status: 'Sehat' },
+  { id: '4', name: 'Maman Abdurrahman', cattle: 12, status: 'Kritis' },
 ];
 
-const MOCK_FARMERS = [
-  { id: '1', name: 'Haryanto', cattle: 24, status: 'Healthy' },
-  { id: '2', name: 'Sutrisno', cattle: 20, status: 'Needs Check' },
-  { id: '3', name: 'Dono S.', cattle: 18, status: 'Healthy' },
-  { id: '4', name: 'Maman', cattle: 12, status: 'Critical' },
+const MOCK_METHANE = [
+  { name: 'A. Supriatna', value: 42 },
+  { name: 'B. Santoso', value: 38 },
+  { name: 'S. Aminah', value: 35 },
+  { name: 'D. Maman', value: 32 },
 ];
+
+function getFarmerStatus(status) {
+  if (status === 'Sehat') return { color: COLORS.success, bg: COLORS.successBg };
+  if (status === 'Perlu Cek') return { color: COLORS.warning, bg: COLORS.warningBg };
+  return { color: COLORS.danger, bg: COLORS.dangerBg };
+}
 
 export default function ReportsScreen() {
+  const { user } = useAuth();
+  
   const totalLivestock = MOCK_LIVESTOCK.length;
+  const healthyCount = MOCK_LIVESTOCK.filter(c => c.healthStatus === 'Sehat').length;
+  const attentionCount = MOCK_LIVESTOCK.filter(c => c.healthStatus === 'Perlu Perhatian').length;
+  const criticalCount = MOCK_LIVESTOCK.filter(c => c.healthStatus === 'Kritis').length;
 
-  const renderFarmerStatus = (status) => {
-    if (status === 'Healthy') return { color: COLORS.success, bg: COLORS.successBg };
-    if (status === 'Needs Check') return { color: COLORS.warning, bg: COLORS.warningBg };
-    return { color: COLORS.danger, bg: COLORS.dangerBg };
-  };
+  const totalMethaneToday = MOCK_LIVESTOCK.reduce((acc, c) => acc + (c.methaneEmissionToday || 0), 0);
+  const avgMethane = totalLivestock > 0 ? Math.round(totalMethaneToday / totalLivestock) : 0;
+  
+  const healthPercent = totalLivestock > 0 ? Math.round((healthyCount / totalLivestock) * 100) : 0;
 
   const handleExport = async () => {
     try {
-      // 1. Generate CSV content
-      const headers = ['Livestock ID', 'Breed', 'Temperature', 'Activity', 'Health Status', 'Barn', 'Weight'];
-      const rows = MOCK_LIVESTOCK.map(c => 
-        `${c.displayId},${c.breed},${c.temperature},${c.activity},${c.healthStatus},${c.barn},${c.weight}`
-      );
-      const csvContent = [headers.join(','), ...rows].join('\n');
-
-      // 2. Save locally
       const dateStr = new Date().toISOString().split('T')[0];
-      const fileName = `AgriTrack_Livestock_Report_${dateStr}.csv`;
-      const fileUri = FileSystem.documentDirectory + fileName;
+      const today = new Date().toLocaleDateString('id-ID');
+
+      // A. INFORMASI LAPORAN
+      const sectionA = [
+        `AgriTrack - Laporan Monitoring Peternakan`,
+        ``,
+        `A. INFORMASI LAPORAN`,
+        `Nama Peternakan,${user?.farmName || 'Peternakan Saya'}`,
+        `Nama Pengguna,${user?.name || 'Peternak'}`,
+        `Lokasi,${user?.location || 'Indonesia'}`,
+        `Tanggal Laporan,${today}`,
+        `Periode Laporan,Harian`,
+        ``
+      ].join('\n');
+
+      // B. RINGKASAN TERNAK
+      const sectionB = [
+        `B. RINGKASAN TERNAK`,
+        `Total Ternak,${totalLivestock}`,
+        `Ternak Sehat,${healthyCount}`,
+        `Perlu Perhatian,${attentionCount}`,
+        `Kritis,${criticalCount}`,
+        ``
+      ].join('\n');
+
+      // C. DETAIL TERNAK
+      const headersC = ['ID Ternak', 'Ras', 'Jenis Kelamin', 'Kandang', 'Umur', 'Berat (kg)', 'Suhu (C)', 'Aktivitas', 'Status Kesehatan'];
+      const rowsC = MOCK_LIVESTOCK.map(c =>
+        `${c.displayId},${c.breed},${c.sex},${c.barn},${c.age},${c.weight},${c.temperature},${c.activity},${c.healthStatus}`
+      );
+      const sectionC = [
+        `C. DETAIL TERNAK`,
+        headersC.join(','),
+        ...rowsC,
+        ``
+      ].join('\n');
+
+      // D. RINGKASAN KESEHATAN
+      const sectionD = [
+        `D. RINGKASAN KESEHATAN`,
+        `Jumlah Ternak Sehat,${healthyCount}`,
+        `Jumlah Yang Memerlukan Perhatian,${attentionCount}`,
+        `Jumlah Ternak Kritis,${criticalCount}`,
+        `Persentase Kesehatan Ternak,${healthPercent}%`,
+        ``
+      ].join('\n');
+
+      // E. RINGKASAN EMISI METANA
+      const highestEmitter = [...MOCK_LIVESTOCK].sort((a, b) => (b.methaneEmissionToday || 0) - (a.methaneEmissionToday || 0))[0];
+      const sectionE = [
+        `E. RINGKASAN EMISI METANA (Estimasi)`,
+        `Total Estimasi Emisi Metana,${totalMethaneToday} L`,
+        `Rata-rata Emisi Per Ternak,${avgMethane} L`,
+        `Ternak Dengan Emisi Tertinggi,${highestEmitter ? highestEmitter.displayId : '-'} (${highestEmitter ? highestEmitter.methaneEmissionToday : 0} L)`,
+        ``
+      ].join('\n');
+
+      // F. TERNAK YANG MEMERLUKAN PERHATIAN
+      const attentionCattle = MOCK_LIVESTOCK.filter(c => c.healthStatus === 'Perlu Perhatian' || c.healthStatus === 'Kritis');
+      const headersF = ['ID Ternak', 'Status', 'Suhu (C)', 'Aktivitas'];
+      const rowsF = attentionCattle.map(c => `${c.displayId},${c.healthStatus},${c.temperature},${c.activity}`);
+      const sectionF = [
+        `F. TERNAK YANG MEMERLUKAN PERHATIAN`,
+        headersF.join(','),
+        ...(rowsF.length > 0 ? rowsF : ['Tidak ada ternak yang memerlukan perhatian hari ini.']),
+      ].join('\n');
+
+      const csvContent = [sectionA, sectionB, sectionC, sectionD, sectionE, sectionF].join('\n');
       
+      const fileName = `Laporan_AgriTrack_${dateStr}.csv`;
+      const fileUri = FileSystem.documentDirectory + fileName;
+
       await FileSystem.writeAsStringAsync(fileUri, csvContent, {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
-      // 3. Share the file
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, {
           mimeType: 'text/csv',
-          dialogTitle: 'Export Livestock Report',
-          UTI: 'public.comma-separated-values-text'
+          dialogTitle: 'Ekspor Laporan Ternak',
+          UTI: 'public.comma-separated-values-text',
         });
       } else {
-        Alert.alert('Sharing Unavailable', 'File sharing is not available on your device.');
+        Alert.alert('Berbagi Tidak Tersedia', 'Fitur berbagi file tidak tersedia di perangkat ini.');
       }
     } catch (error) {
-      Alert.alert('Export Failed', 'An error occurred while generating the report.');
+      Alert.alert('Ekspor Gagal', 'Terjadi kesalahan saat membuat laporan.');
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Header ── */}
         <View style={styles.header}>
-          <Text style={styles.title}>Reports</Text>
+          <Text style={styles.title}>Laporan</Text>
           <View style={styles.subtitleRow}>
-            <Calendar size={16} color={COLORS.textLight} style={{ marginRight: 6 }} />
-            <Text style={styles.subtitle}>KUD Sumber Makmur • 1–31 Oct 2026</Text>
+            <Calendar size={14} color={COLORS.textLight} style={{ marginRight: 5 }} />
+            <Text style={styles.subtitle}>{user?.farmName || 'Peternakan'} • Hari Ini</Text>
           </View>
         </View>
 
-        {/* KPI Cards */}
-        <View style={styles.kpiContainer}>
-          <View style={styles.kpiCard}>
+        {/* ── Summary KPI row ── */}
+        <View style={styles.kpiRow}>
+          <View style={[styles.kpiCard, { flex: 1.2 }]}>
             <View style={styles.kpiHeader}>
-              <Text style={styles.kpiLabel}>TOTAL LIVESTOCK</Text>
-              <Users size={16} color={COLORS.primary} />
+              <View style={[styles.kpiIconBox, { backgroundColor: COLORS.softGreen }]}>
+                <Users size={14} color={COLORS.primary} />
+              </View>
+              <Text style={styles.kpiLabel}>TOTAL TERNAK</Text>
             </View>
             <Text style={styles.kpiValue}>{totalLivestock}</Text>
-            <Text style={styles.kpiTrend}>+12 this month</Text>
+            <Text style={styles.kpiTrend}>Bulan ini</Text>
           </View>
 
-          <View style={styles.kpiCard}>
+          <View style={[styles.kpiCard, { flex: 1 }]}>
             <View style={styles.kpiHeader}>
-              <Text style={styles.kpiLabel}>EST. METHANE (MO)</Text>
-              <TrendingUp size={16} color={COLORS.warning} />
+              <View style={[styles.kpiIconBox, { backgroundColor: COLORS.successBg }]}>
+                <HeartPulse size={14} color={COLORS.success} />
+              </View>
+              <Text style={styles.kpiLabel}>SEHAT</Text>
             </View>
-            <Text style={styles.kpiValue}>42.5 <Text style={{fontSize: 16}}>tons</Text></Text>
-            <Text style={[styles.kpiTrend, { color: COLORS.danger }]}>+4% vs last month</Text>
+            <Text style={[styles.kpiValue, { color: COLORS.success }]}>{healthyCount}</Text>
+            <Text style={[styles.kpiTrend, { color: COLORS.success }]}>Kondisi baik</Text>
           </View>
 
-          <View style={styles.kpiCard}>
+          <View style={[styles.kpiCard, { flex: 1 }]}>
             <View style={styles.kpiHeader}>
-              <Text style={styles.kpiLabel}>REQUIRES FOLLOW-UP</Text>
-              <AlertCircle size={16} color={COLORS.danger} />
+              <View style={[styles.kpiIconBox, { backgroundColor: COLORS.warningBg }]}>
+                <CircleAlert size={14} color={COLORS.warning} />
+              </View>
+              <Text style={styles.kpiLabel}>PERHATIAN</Text>
             </View>
-            <Text style={styles.kpiValue}>8 <Text style={{fontSize: 16}}>Farmers</Text></Text>
-            <Text style={[styles.kpiTrend, { color: COLORS.danger }]}>Attention Required</Text>
+            <Text style={[styles.kpiValue, { color: COLORS.warning }]}>{attentionCount + criticalCount}</Text>
+            <Text style={[styles.kpiTrend, { color: COLORS.warning }]}>Perlu cek</Text>
           </View>
         </View>
 
-        {/* Methane Analytics */}
+        {/* ── Methane Emissions ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Methane Emissions by Farmer</Text>
-            <Text style={styles.linkText}>Top 10</Text>
+            <View style={styles.sectionTitleRow}>
+              <Activity size={16} color={COLORS.primary} style={{ marginRight: 7 }} />
+              <Text style={styles.sectionTitle}>Emisi Metana</Text>
+            </View>
+            <Text style={styles.sectionTag}>Est. Bulanan</Text>
           </View>
           <View style={styles.chartCard}>
             {MOCK_METHANE.map((item, index) => (
               <View key={index} style={styles.barRow}>
                 <Text style={styles.barLabel}>{item.name}</Text>
-                <View style={styles.barContainer}>
-                  <View style={[styles.bar, { width: `${(item.value / 50) * 100}%` }]} />
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.bar,
+                      { width: `${(item.value / 50) * 100}%` },
+                      index === 0 && { backgroundColor: COLORS.primaryDark },
+                    ]}
+                  />
                 </View>
                 <Text style={styles.barValue}>{item.value}</Text>
               </View>
@@ -124,35 +227,45 @@ export default function ReportsScreen() {
           </View>
         </View>
 
-        {/* Farmer Data */}
+        {/* ── Farmer Data ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Farmer Data</Text>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <ChartBar size={16} color={COLORS.primary} style={{ marginRight: 7 }} />
+              <Text style={styles.sectionTitle}>Ringkasan Peternak</Text>
+            </View>
+          </View>
           {MOCK_FARMERS.map(farmer => {
-            const statusStyle = renderFarmerStatus(farmer.status);
+            const { color, bg } = getFarmerStatus(farmer.status);
             return (
               <View key={farmer.id} style={styles.farmerCard}>
-                <View>
-                  <Text style={styles.farmerName}>{farmer.name}</Text>
-                  <Text style={styles.farmerDetails}>{farmer.cattle} Cattle</Text>
+                <View style={styles.farmerAvatar}>
+                  <Text style={styles.farmerInitial}>
+                    {farmer.name.split(' ')[0][0]}{farmer.name.split(' ').pop()[0]}
+                  </Text>
                 </View>
-                <View style={[styles.badge, { backgroundColor: statusStyle.bg }]}>
-                  <Text style={[styles.badgeText, { color: statusStyle.color }]}>{farmer.status}</Text>
+                <View style={styles.farmerInfo}>
+                  <Text style={styles.farmerName}>{farmer.name}</Text>
+                  <Text style={styles.farmerDetails}>{farmer.cattle} Sapi</Text>
+                </View>
+                <View style={[styles.badge, { backgroundColor: bg }]}>
+                  <Text style={[styles.badgeText, { color }]}>{farmer.status}</Text>
                 </View>
               </View>
             );
           })}
         </View>
 
-        {/* Export CTA */}
-        <Pressable 
-          style={styles.exportButton}
+        {/* ── Export ── */}
+        <Pressable
+          style={({ pressed }) => [styles.exportButton, pressed && styles.exportPressed]}
           onPress={handleExport}
         >
-          <Download size={20} color={COLORS.surface} style={{ marginRight: 8 }} />
-          <Text style={styles.exportButtonText}>Export Report</Text>
+          <Download size={20} color={COLORS.surface} style={{ marginRight: 10 }} />
+          <Text style={styles.exportButtonText}>Ekspor Laporan</Text>
         </Pressable>
 
-        <View style={{height: 30}} />
+        <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -164,7 +277,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   scrollContent: {
-    padding: SIZES.pagePadding,
+    paddingHorizontal: SIZES.pagePadding,
+    paddingTop: SIZES.sm,
+    paddingBottom: 16,
   },
   header: {
     marginBottom: SIZES.lg,
@@ -176,127 +291,166 @@ const styles = StyleSheet.create({
   subtitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 5,
   },
   subtitle: {
-    ...FONTS.body,
+    fontSize: 13,
     color: COLORS.textLight,
   },
-  kpiContainer: {
+
+  // KPI
+  kpiRow: {
+    flexDirection: 'row',
+    gap: 10,
     marginBottom: SIZES.lg,
   },
   kpiCard: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
-    padding: 16,
-    marginBottom: 12,
+    padding: 14,
     ...SHADOWS.card,
   },
   kpiHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: 6,
+    marginBottom: 10,
+  },
+  kpiIconBox: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   kpiLabel: {
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: '700',
     color: COLORS.textLight,
+    letterSpacing: 0.4,
+    flexShrink: 1,
   },
   kpiValue: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: '800',
     color: COLORS.primaryDark,
-    marginBottom: 4,
+    letterSpacing: -0.5,
+    marginBottom: 3,
   },
   kpiTrend: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: COLORS.success,
   },
+
+  // Section
   section: {
-    marginBottom: SIZES.xl,
+    marginBottom: SIZES.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   sectionTitle: {
     ...FONTS.sectionTitle,
   },
-  linkText: {
-    ...FONTS.body,
-    fontWeight: '600',
-    color: COLORS.primary,
+  sectionTag: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    fontWeight: '500',
   },
+
+  // Chart
   chartCard: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
-    padding: 16,
+    padding: 18,
     ...SHADOWS.card,
   },
   barRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   barLabel: {
-    width: 65,
-    fontSize: 13,
+    width: 76,
+    fontSize: 12,
     fontWeight: '500',
     color: COLORS.text,
   },
-  barContainer: {
+  barTrack: {
     flex: 1,
-    height: 12,
+    height: 10,
     backgroundColor: COLORS.border,
-    borderRadius: 6,
-    marginHorizontal: 12,
+    borderRadius: 5,
+    marginHorizontal: 10,
     overflow: 'hidden',
   },
   bar: {
     height: '100%',
     backgroundColor: COLORS.secondary,
-    borderRadius: 6,
+    borderRadius: 5,
   },
   barValue: {
-    width: 24,
-    fontSize: 13,
-    fontWeight: '600',
+    width: 26,
+    fontSize: 12,
+    fontWeight: '700',
     color: COLORS.primaryDark,
     textAlign: 'right',
   },
+
+  // Farmer cards
   farmerCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
-    padding: 16,
+    padding: 14,
     borderRadius: RADIUS.lg,
-    marginBottom: 12,
+    marginBottom: 10,
     ...SHADOWS.card,
   },
+  farmerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.softGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  farmerInitial: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  farmerInfo: { flex: 1 },
   farmerName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: COLORS.text,
   },
   farmerDetails: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textLight,
-    marginTop: 4,
+    marginTop: 3,
   },
   badge: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: RADIUS.round,
   },
   badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
+
+  // Export
   exportButton: {
     flexDirection: 'row',
     backgroundColor: COLORS.primaryDark,
@@ -304,11 +458,14 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    ...SHADOWS.card,
+    ...SHADOWS.button,
+  },
+  exportPressed: {
+    backgroundColor: COLORS.primary,
   },
   exportButtonText: {
     color: COLORS.surface,
     fontSize: 16,
     fontWeight: '700',
-  }
+  },
 });

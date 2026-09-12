@@ -1,20 +1,45 @@
+// AgriTrack Design System — Centralized Design Tokens
+// All screens must consume these tokens. Do NOT hardcode colors.
+
 export const COLORS = {
-  primaryDark: '#263D18',
-  primary: '#3F6228',
-  secondary: '#6F8A51',
-  background: '#F7F5ED',
+  // Primary Green Palette
+  primaryDark: '#183D2B',
+  primary: '#2F6B3B',
+  secondary: '#4F8A4C',
+  fresh: '#78A85A',
+  softGreen: '#DCEAD7',
+  veryLight: '#EEF5EA',
+
+  // Backgrounds
+  background: '#F7FAF5',
   surface: '#FFFFFF',
-  text: '#20251D',
-  textLight: '#6D7268',
-  border: '#E3E1D8',
-  success: '#4D8A3A',
-  successBg: '#EAF5E5',
-  warning: '#C88618',
-  warningBg: '#FFF2D8',
-  danger: '#B93A35',
-  dangerBg: '#FBE8E6',
-  earth: '#9B5D36',
-  earthBg: '#F6E3D7',
+
+  // Text
+  text: '#1E2A20',
+  textLight: '#68756A',
+  textMuted: '#9AACA0',
+
+  // Borders
+  border: '#DDE6DA',
+  borderLight: '#EEF3EC',
+
+  // Semantic — Only for health status communication
+  success: '#2F6B3B',
+  successMid: '#4F8A4C',
+  successBg: '#EEF5EA',
+  successBorder: '#C5DEB8',
+
+  warning: '#8A6A1A',
+  warningBg: '#FDF5E0',
+  warningBorder: '#E8D68A',
+
+  danger: '#9B2C2C',
+  dangerBg: '#FDF0F0',
+  dangerBorder: '#F5C2C2',
+
+  // Tab bar
+  tabActive: '#2F6B3B',
+  tabInactive: '#A0ABA2',
 };
 
 export const SIZES = {
@@ -25,6 +50,7 @@ export const SIZES = {
   xl: 32,
   xxl: 40,
   pagePadding: 20,
+  inputHeight: 52,
 };
 
 export const FONTS = {
@@ -32,16 +58,19 @@ export const FONTS = {
     fontSize: 28,
     fontWeight: '700',
     color: COLORS.text,
+    letterSpacing: -0.3,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: COLORS.text,
+    letterSpacing: -0.2,
   },
   kpi: {
     fontSize: 34,
     fontWeight: '700',
     color: COLORS.primaryDark,
+    letterSpacing: -0.5,
   },
   cardTitle: {
     fontSize: 16,
@@ -51,26 +80,49 @@ export const FONTS = {
   body: {
     fontSize: 14,
     color: COLORS.text,
+    lineHeight: 20,
   },
   caption: {
     fontSize: 12,
     color: COLORS.textLight,
   },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 6,
+  },
 };
 
 export const RADIUS = {
-  sm: 8,
-  md: 12,
+  xs: 6,
+  sm: 10,
+  md: 14,
   lg: 18,
+  xl: 24,
   round: 9999,
 };
 
 export const SHADOWS = {
   card: {
-    shadowColor: COLORS.primaryDark,
+    shadowColor: '#183D2B',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  strong: {
+    shadowColor: '#183D2B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  button: {
+    shadowColor: '#183D2B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 5,
   },
 };
