@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <HTTPClient.h>
 #include <math.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -10,9 +11,17 @@
 
 #define ONE_WIRE_BUS 4
 
-// Jaringan Wi-Fi yang dipancarkan ESP32. Password minimal 8 karakter.
+// --- Jaringan Wi-Fi yang dipancarkan ESP32 (Access Point) ---
 const char* AP_SSID = "Eco-Herd-ESP32";
 const char* AP_PASSWORD = "ecoherd123";
+
+// --- Jaringan Wi-Fi rumah/kantor (buat kirim data ke backend) ---
+const char* STA_SSID = "Dinningroom";
+const char* STA_PASSWORD = "attebetraya";
+
+// --- Backend FastAPI ---
+const char* SERVER_URL = "http://10.10.10.145:8000/api/sensor-data";
+const unsigned long BACKEND_SEND_INTERVAL_MS = 2000;
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature ds18b20(&oneWire);
@@ -20,11 +29,12 @@ Adafruit_MPU6050 mpu;
 WebServer server(80);
 
 const unsigned long SENSOR_INTERVAL_MS = 1000;
-const unsigned long TEMPERATURE_CONVERSION_MS = 750; // DS18B20 12-bit
+const unsigned long TEMPERATURE_CONVERSION_MS = 750;
 bool mpuReady = false;
 bool temperaturePending = false;
 bool temperatureValid = false;
 bool motionValid = false;
+bool staConnected = false;
 float temperatureC = 0;
 sensors_event_t acceleration, gyro, mpuTemperature;
 unsigned long temperatureRequestedAt = 0;
@@ -32,6 +42,7 @@ unsigned long temperatureUpdatedAt = 0;
 unsigned long motionUpdatedAt = 0;
 unsigned long lastMotionRead = 0;
 unsigned long lastSerialPrint = 0;
+unsigned long lastBackendSend = 0;
 
 bool mpuResponding() {
   Wire.beginTransmission(MPU6050_I2CADDR_DEFAULT);
@@ -41,7 +52,6 @@ bool mpuResponding() {
 void updateSensors() {
   unsigned long now = millis();
 
-  // Tunggu konversi suhu tanpa menghentikan layanan web.
   if (temperaturePending && now - temperatureRequestedAt >= TEMPERATURE_CONVERSION_MS) {
     temperatureC = ds18b20.getTempCByIndex(0);
     temperatureValid = isfinite(temperatureC) &&
@@ -58,8 +68,6 @@ void updateSensors() {
 
   if (now - lastMotionRead >= SENSOR_INTERVAL_MS) {
     lastMotionRead = now;
-    // Jangan mengakses driver jika inisialisasi MPU6050 gagal.
-    // getEvent() pada library ini selalu mengembalikan true; cek ACK I2C juga.
     motionValid = mpuReady && mpuResponding() &&
                   mpu.getEvent(&acceleration, &gyro, &mpuTemperature) && mpuResponding();
     if (motionValid) {
@@ -105,18 +113,79 @@ void sendSensorData() {
   server.send(200, "application/json", json);
 }
 
-void setupWiFi() {
-  if (!WiFi.mode(WIFI_AP) || !WiFi.softAP(AP_SSID, AP_PASSWORD)) {
-    Serial.println("[WiFi] GAGAL mengaktifkan Access Point.");
+void sendToBackend() {
+  if (WiFi.status() != WL_CONNECTED) {
     return;
   }
 
-  Serial.println("[WiFi] Access Point aktif!");
-  Serial.print("[WiFi] Nama jaringan: ");
-  Serial.println(AP_SSID);
-  Serial.print("[WiFi] Alamat IP ESP32: ");
-  Serial.println(WiFi.softAPIP());
-  Serial.println("[WiFi] Hubungkan HP ke jaringan ini (tanpa internet).");
+  HTTPClient http;
+  http.begin(SERVER_URL);
+  http.addHeader("Content-Type", "application/json");
+
+  float suhu = temperatureValid ? temperatureC : 0;
+  float ax = motionValid ? acceleration.acceleration.x : 0;
+  float ay = motionValid ? acceleration.acceleration.y : 0;
+  float az = motionValid ? acceleration.acceleration.z : 0;
+  float gx = motionValid ? gyro.gyro.x : 0;
+  float gy = motionValid ? gyro.gyro.y : 0;
+  float gz = motionValid ? gyro.gyro.z : 0;
+
+  String payload = "{";
+  payload += "\"suhu\":" + String(suhu, 2) + ",";
+  payload += "\"accel_x\":" + String(ax, 2) + ",";
+  payload += "\"accel_y\":" + String(ay, 2) + ",";
+  payload += "\"accel_z\":" + String(az, 2) + ",";
+  payload += "\"gyro_x\":" + String(gx, 2) + ",";
+  payload += "\"gyro_y\":" + String(gy, 2) + ",";
+  payload += "\"gyro_z\":" + String(gz, 2);
+  payload += "}";
+
+  int httpResponseCode = http.POST(payload);
+
+  if (httpResponseCode > 0) {
+    Serial.print("[BACKEND] Kirim OK, response code: ");
+    Serial.println(httpResponseCode);
+  } else {
+    Serial.print("[BACKEND] Kirim GAGAL, error: ");
+    Serial.println(http.errorToString(httpResponseCode));
+  }
+
+  http.end();
+}
+
+void setupWiFi() {
+  WiFi.mode(WIFI_AP_STA);
+
+  if (!WiFi.softAP(AP_SSID, AP_PASSWORD)) {
+    Serial.println("[WiFi] GAGAL mengaktifkan Access Point.");
+  } else {
+    Serial.println("[WiFi] Access Point aktif!");
+    Serial.print("[WiFi] Nama jaringan: ");
+    Serial.println(AP_SSID);
+    Serial.print("[WiFi] Alamat IP ESP32 (AP): ");
+    Serial.println(WiFi.softAPIP());
+    Serial.println("[WiFi] Hubungkan HP ke jaringan ini (tanpa internet).");
+  }
+
+  Serial.print("[WiFi] Menghubungkan ke WiFi rumah: ");
+  Serial.println(STA_SSID);
+  WiFi.begin(STA_SSID, STA_PASSWORD);
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    staConnected = true;
+    Serial.print("[WiFi] Terhubung ke WiFi rumah! IP ESP32 (STA): ");
+    Serial.println(WiFi.localIP());
+  } else {
+    staConnected = false;
+    Serial.println("[WiFi] GAGAL connect ke WiFi rumah. Data tidak akan terkirim ke backend, tapi Access Point tetap jalan.");
+  }
 
   server.on("/", HTTP_GET, []() {
     server.sendHeader("Cache-Control", "no-store");
@@ -136,15 +205,13 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) delay(10);
 
-  // Inisialisasi I2C
   Wire.begin(21, 22);
   Wire.setTimeOut(50);
-  delay(200); // Jeda agar MPU6050 siap menerima sinyal I2C
+  delay(200);
 
   Serial.println("=== Pengujian Sensor dan WiFi ESP32 ===");
   setupWiFi();
 
-  // Inisialisasi DS18B20
   ds18b20.begin();
   ds18b20.setResolution(12);
   ds18b20.setWaitForConversion(false);
@@ -156,7 +223,6 @@ void setup() {
     Serial.println(deviceCount);
   }
 
-  // Percobaan ulang inisialisasi MPU6050 hingga 5 kali
   for (int i = 0; i < 5; i++) {
     if (mpu.begin()) {
       mpuReady = true;
@@ -184,6 +250,11 @@ void loop() {
   server.handleClient();
   updateSensors();
 
+  if (millis() - lastBackendSend >= BACKEND_SEND_INTERVAL_MS) {
+    lastBackendSend = millis();
+    sendToBackend();
+  }
+
   if (millis() - lastSerialPrint < 2000) {
     delay(1);
     return;
@@ -196,7 +267,7 @@ void loop() {
   } else {
     Serial.print("DS18B20 Suhu : ");
     Serial.print(temperatureC);
-    Serial.println(" °C");
+    Serial.println(" C");
   }
 
   if (motionValid) {
