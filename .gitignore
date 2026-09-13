@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# PlatformIO
+.pio/
+
+# VS Code
+.vscode/
+
+# Environment files
+.env
+
+# Jupyter
+.ipynb_checkpoints/
