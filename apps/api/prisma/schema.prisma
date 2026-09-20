@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+}
+
+model Telemetry {
+  id        String   @id @default(uuid())
+  deviceId  String
+  gatewayId String
+  sessionId String
+  recordSeq Int
+  receivedAt DateTime @default(now())
+  temperatureC Float
+  accelerationX Float
+  accelerationY Float
+  accelerationZ Float
+  
+  @@unique([deviceId, sessionId, recordSeq])
+}

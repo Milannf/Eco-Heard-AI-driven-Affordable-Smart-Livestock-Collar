@@ -1,0 +1,17 @@
+{
+  "name": "eco-herd-root",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:mobile": "npm run dev --workspace=apps/mobile",
+    "install:all": "npm install"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
