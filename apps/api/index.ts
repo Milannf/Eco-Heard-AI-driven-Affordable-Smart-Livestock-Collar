@@ -48,7 +48,7 @@ app.post('/api/v1/telemetry', async (req, res) => {
           accelerationY: sample.acceleration_mg.y,
           accelerationZ: sample.acceleration_mg.z,
         }
-      }).catch(e => console.error("Skip duplicate:", e));
+      }).catch((e: any) => console.error("Skip duplicate:", e));
 
       // Broadcast update
       clients.forEach(client => client.write(`data: ${JSON.stringify(sample)}\n\n`));

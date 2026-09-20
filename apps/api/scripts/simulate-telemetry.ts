@@ -18,7 +18,7 @@ const simulateTelemetry = async () => {
   try {
     const response = await axios.post('http://localhost:3000/api/v1/telemetry', payload);
     console.log('Response:', response.data);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error sending telemetry:', error.message);
   }
 };
