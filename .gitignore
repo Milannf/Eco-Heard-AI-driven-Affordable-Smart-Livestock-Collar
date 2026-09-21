@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+**/node_modules/
+**/.expo/
+**/.venv/
+**/.pio/
+**/__pycache__/
+*.pyc
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+firmware/records/
+firmware/screenshots/
+firmware/include/gateway_config.h
+models/*.joblib
+dist/
