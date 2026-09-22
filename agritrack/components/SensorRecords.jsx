@@ -43,8 +43,10 @@ export default function SensorRecords({ deviceId, cowId }) {
       {page.readings.map(record => (
         <View key={record.id} style={styles.row}>
           <Text style={styles.label}>{new Date(record.observed_at).toLocaleString()}</Text>
-          <Text style={styles.note}>Suhu sensor: {record.temperature_valid ? `${record.temperature_c.toFixed(2)} °C` : 'Tidak tersedia'}</Text>
-          <Text style={styles.note}>Gerakan: {record.motion_valid ? 'Terbaca' : 'Tidak tersedia'}</Text>
+          <Text style={styles.note}>Suhu: {record.temperature_valid ? `${record.temperature_c.toFixed(2)} °C (umur ${record.temperature_age_ms} ms)` : 'Tidak tersedia'}</Text>
+          <Text style={styles.note}>Akselerasi: {formatVector(record.acceleration_mg, 2)} mg</Text>
+          <Text style={styles.note}>Giroskop: {formatVector(record.gyro_rad_s, 3)} rad/s</Text>
+          {record.audio_valid && <Text style={styles.note}>Audio: RMS {record.audio?.rms?.toFixed(4)} · {record.audio?.dbfs?.toFixed(1)} dBFS</Text>}
         </View>
       ))}
       <View style={styles.actions}>

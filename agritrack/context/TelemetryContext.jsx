@@ -18,7 +18,7 @@ export function TelemetryProvider({ children }) {
       return process.env.EXPO_PUBLIC_API_MODE === 'same-origin'
         ? window.location.origin : `${window.location.protocol}//${window.location.hostname}:3001`;
     }
-    return process.env.EXPO_PUBLIC_API_URL || '';
+    return process.env.EXPO_PUBLIC_API_URL || 'http://172.20.10.2:3001';
   };
 
   useEffect(() => {
